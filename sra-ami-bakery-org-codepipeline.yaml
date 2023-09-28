@@ -1,0 +1,361 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 
+  This template creates the EC2 ImageBuilder Pipeline that is able to created Amazon Linux STIG hardened image.
+Metadata:
+  SRA-EC2-ImageBuilder:
+    Version: 1.0
+    Order: 1
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: General Properties
+        Parameters:
+          - pSRAAMIBakeryImageBuilderSolutionName
+          - pSRAAMIBakeryImageBuilderComponentVersionNumber
+      - Label:
+          default: EC2 ImageBuilder Properties
+        Parameters:
+          - pSRAAMIBakeryImageBuilderInstanceType
+          - pSRAAMIBakeryImageBuilderInstanceProfileName
+          - pSRAAMIBakeryImageBuilderBuildComponentName
+          - pSRAAMIBakeryImageBuilderDistributionConfigName
+          - pSRAAMIBakeryImageBuilderImageRecipeName
+          - pSRAAMIBakeryImageBuilderInfrastructureConfigName
+          - pSRAAMIBakeryImageBuilderImagePipelineName
+      - Label:
+          default: EC2 ImageBuilder IAM properties
+        Parameters:
+          - pSRAAMIBakeryImageBuilderRoleName
+    ParameterLabels:
+      pSRAAMIBakeryImageBuilderInstanceType:
+        default: EC2 ImageBuilder Instance Type
+      pSRAAMIBakeryImageBuilderInstanceProfileName:
+        default: EC2 Instance Profile Name
+      pSRAAMIBakeryImageBuilderBuildComponentName:
+        default: EC2 ImageBuilder Component name
+      pSRAAMIBakeryImageBuilderComponentVersionNumber:
+        default: EC2 ImageBuilder Component Version number
+      pSRAAMIBakeryImageBuilderDistributionConfigName:
+        default: EC2 ImageBuilder Distribution Configuration name
+      pSRAAMIBakeryImageBuilderImageRecipeName:
+        default: EC2 ImageBuilder Image Recipe name
+      pSRAAMIBakeryImageBuilderInfrastructureConfigName:
+        default: EC2 ImageBuilder Infrastructure Configuration name
+      pSRAAMIBakeryImageBuilderImagePipelineName:
+        default: EC2 ImageBuilder Pipeline name
+      pSRAAMIBakeryImageBuilderSolutionName:
+        default: SRA AMI Bakery solution name
+      pSRAAMIBakeryImageBuilderRoleName:
+        default: EC2 ImageBuilder Role name
+
+Parameters:
+  pSRAAMIBakeryImageBuilderInstanceType:
+    Type: String
+    ConstraintDescription: Must be a valid EC2 instance type.
+    Default: t2.micro
+    Description: EC2 instance type
+  pSRAAMIBakeryImageBuilderBuildComponentName:
+    Type: String
+    Description: STIG hardening component for Amazon Linux
+    AllowedValues:
+      - stig-build-linux-low
+      - stig-build-linux-medium
+      - stig-build-linux-high
+    Default: stig-build-linux-high
+  pSRAAMIBakeryImageBuilderComponentVersionNumber:
+    Type: String
+    Default: 2023.2.2
+  pSRAAMIBakeryImageBuilderDistributionConfigName:
+    AllowedValues: [sra-ami-bakery-org-amazon-linux-stig-distribution-config]
+    Default: sra-ami-bakery-org-amazon-linux-stig-distribution-config
+    Description: Amazon Linux STIG hardened Distribution configuration name for SRA AMI Bakery solution
+    Type: String
+  pSRAAMIBakeryImageBuilderImageRecipeName:
+    AllowedValues: [sra-ami-bakery-org-amazon-linux-stig-image-recipe]
+    Default: sra-ami-bakery-org-amazon-linux-stig-image-recipe
+    Description: Amazon Linux STIG hardened Image Recipe name for SRA AMI Bakery solution
+    Type: String
+  pSRAAMIBakeryImageBuilderInfrastructureConfigName:
+    AllowedValues: [sra-ami-bakery-org-amazon-linux-stig-infrastructure-configuration]
+    Default: sra-ami-bakery-org-amazon-linux-stig-infrastructure-configuration
+    Description: Amazon Linux STIG hardened Infrastructure Configuration name for SRA AMI Bakery solution
+    Type: String
+  pSRAAMIBakeryImageBuilderImagePipelineName:
+    AllowedValues: [sra-ami-bakery-org-amazon-linux-stig-pipeline]
+    Default: sra-ami-bakery-org-amazon-linux-stig-pipeline
+    Description: Amazon Linux STIG hardened Pipeline name for SRA AMI Bakery solution
+    Type: String
+  pSRAAMIBakeryImageBuilderSolutionName:
+    AllowedValues: [sra-ami-bakery-org]
+    Default: sra-ami-bakery-org
+    Description: The SRA solution name for Amazon Linux STIG hardened. The default value is the folder name of the solution
+    Type: String
+  pSRAAMIBakeryImageBuilderRoleName:
+    AllowedValues: [sra-ami-bakery-org-ec2-imagebuilder-role]
+    Default: "sra-ami-bakery-org-ec2-imagebuilder-role"
+    Description: The SRA AMI Bakery EC2 ImageBuilder Role name.
+    Type: String
+  pSRAAMIBakeryImageBuilderInstanceProfileName:
+    AllowedPattern: '[\w+=,.@-]+'
+    Default: sra-ami-bakery-org-ec2-imagebuilder-instance-profile
+    Description: The EC2 Instance Profile for SRA AMI Bakery EC2 ImageBuilder
+    Type: String
+
+Mappings:
+  AWSRegionAMI:
+    us-east-1:
+      AMI: ami-051f7e7f6c2f40dc1
+    us-west-1:
+      AMI: ami-00baaa26c63140022
+    eu-west-1:
+      AMI: ami-04b1c88a6bbd48f8e
+    ap-northeast-1:
+      AMI: ami-0bc23e4337e8bc5ea
+    ap-southeast-1:
+      AMI: ami-067d12e172891a3e4
+Resources:
+  rSRAAMIBakeryAMIBakeryImageBuilderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref pSRAAMIBakeryImageBuilderRoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::${AWS::Partition}:policy/EC2InstanceProfileForImageBuilder
+        - !Sub arn:${AWS::Partition}:iam::${AWS::Partition}:policy/AmazonSSMManagedInstanceCore
+        - !Sub arn:${AWS::Partition}:iam::${AWS::Partition}:policy/service-role/AmazonEC2RoleforSSM
+      Tags:
+        - Key: sra-ami-bakery-org
+          Value: !Ref pSRAAMIBakeryImageBuilderSolutionName
+
+  rSRAAMIBakeryAMIBakeryInstanceProfileForImageBuilder:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Ref pSRAAMIBakeryImageBuilderInstanceProfileName
+      Roles:
+        - !Ref rSRAAMIBakeryAMIBakeryImageBuilderRole
+
+  rSRAAMIBakeryAMIBakeryImageBuilderRecipe:
+    Type: AWS::ImageBuilder::ImageRecipe
+    Properties:
+        Name: !Ref pSRAAMIBakeryImageBuilderImageRecipeName
+        Version: 1.0.0
+        Components:
+          - ComponentArn: !Sub arn:${AWS::Partition}:imagebuilder:${AWS::Region}:${AWS::Partition}:component/${pSRAAMIBakeryImageBuilderBuildComponentName}/${pSRAAMIBakeryImageBuilderComponentVersionNumber}
+        ParentImage: !FindInMap
+          - AWSRegionAMI
+          - !Ref "AWS::Region"
+          - AMI
+
+  rSRAAMIBakeryAMIBakeryImageBuildDistributionConfig:
+    Type: AWS::ImageBuilder::DistributionConfiguration
+    Properties:
+        Name: !Ref pSRAAMIBakeryImageBuilderDistributionConfigName
+        Distributions:
+            - Region: us-east-1
+              AmiDistributionConfiguration:
+                  Name: cfn-us-east-1-{{imagebuilder:buildDate}}
+
+  rSRAAMIBakeryAMIBakeryImageBuilderInfrastructureConfiguration:
+    Type: AWS::ImageBuilder::InfrastructureConfiguration
+    Properties:
+        Name: !Ref pSRAAMIBakeryImageBuilderInfrastructureConfigName
+        InstanceProfileName: !Ref rSRAAMIBakeryAMIBakeryInstanceProfileForImageBuilder
+        InstanceTypes: 
+          - !Ref pSRAAMIBakeryImageBuilderInstanceType
+
+  rSRAAMIBakeryAMIBakeryImageBuilderPipeline:
+    Type: AWS::ImageBuilder::ImagePipeline
+    Properties:
+      Name: !Ref pSRAAMIBakeryImageBuilderImagePipelineName
+      Description: Level 1 server STIG hardening
+      DistributionConfigurationArn: !Ref rSRAAMIBakeryAMIBakeryImageBuildDistributionConfig
+      ImageRecipeArn: !Ref rSRAAMIBakeryAMIBakeryImageBuilderRecipe
+      InfrastructureConfigurationArn: !Ref rSRAAMIBakeryAMIBakeryImageBuilderInfrastructureConfiguration
+      ImageTestsConfiguration:
+        ImageTestsEnabled: true
+        TimeoutMinutes: 60
+      Schedule:
+        PipelineExecutionStartCondition: EXPRESSION_MATCH_AND_DEPENDENCY_UPDATES_AVAILABLE
+        ScheduleExpression: cron(0 0 * * ? *)
+      Status: ENABLED
+
+
+# 
+# Uncomment here if you want to deploy Ubuntu CIS Level 1 Hardened AMI
+#
+
+
+# AWSTemplateFormatVersion: '2010-09-09'
+# Description: 
+#   This template creates the EC2 ImageBuilder Pipeline that deploy Ubuntu Pro 20.04-amd64 (Community AMI) CIS Level 1 hardened image.
+# Parameters:
+#   InstanceType:
+#     Type: String
+#     ConstraintDescription: Must be a valid EC2 instance type.
+#     Default: t2.micro
+#     Description: EC2 instance type
+#   ComponentPlatform:
+#     Type: String
+#     AllowedValues:
+#         - Linux
+#         - Windows
+#     Default: Linux
+
+# Mappings:
+#   AWSRegionAMI:
+#     us-east-1:
+#       AMI: ami-06ab16ee41d098435
+#     us-west-1:
+#       AMI: ami-0f5316ce685d95d8d
+#     eu-west-1:
+#       AMI: ami-0cd9f3691aeda57c2
+#     ap-northeast-1:
+#       AMI: ami-0e5b34fd6be95000a
+#     ap-southeast-1:
+#       AMI: ami-041f44ba87847f585
+
+# Resources:
+#   ImageBuilderRole:
+#     Type: AWS::IAM::Role
+#     Properties:
+#         AssumeRolePolicyDocument:
+#           Version: "2012-10-17"
+#           Statement:
+#             - Effect: Allow
+#               Principal:
+#                 Service:
+#                   - ec2.amazonaws.com
+#               Action:
+#                 - 'sts:AssumeRole'
+#         Path: /
+#         ManagedPolicyArns:
+#             - !Sub arn:${AWS::Partition}:iam::${AWS::Partition}:policy/EC2InstanceProfileForImageBuilder
+#             - !Sub arn:${AWS::Partition}:iam::${AWS::Partition}:policy/AmazonSSMManagedInstanceCore
+#             - !Sub arn:${AWS::Partition}:iam::${AWS::Partition}:policy/EC2InstanceProfileForImageBuilderECRContainerBuilds
+#             - !Sub arn:${AWS::Partition}:iam::${AWS::Partition}:policy/AmazonSSMFullAccess
+
+#   InstanceProfileForImageBuilder:
+#     Type: AWS::IAM::InstanceProfile
+#     Properties:
+#         Roles:
+#           - !Ref ImageBuilderRole
+
+#   InstallUSGComponent:
+#     Type: AWS::ImageBuilder::Component
+#     Properties:
+#         Name: usg-install
+#         Version: 1.0.0
+#         Platform: !Ref ComponentPlatform
+#         Data: |
+#           name: Install usg 
+#           description: This will install usg on Amazon Linux AMI 2023
+#           schemaVersion: 1.0
+
+#           phases:
+#               - name: build
+#                 steps:
+#                   - name: Install
+#                     action: ExecuteBash
+#                     inputs:
+#                       commands:
+#                         - cloud-init status --wait
+#                         - sudo ua enable usg
+#                         - sudo apt-get install usg -y
+
+#   FixCISLevel1NonCompliantResources:
+#     Type: AWS::ImageBuilder::Component
+#     Properties:
+#         Name: usg-fix
+#         Version: 1.0.0
+#         Platform: !Ref ComponentPlatform
+#         Data: |
+#           name: RunUsgFix
+#           description: This runs usg fix against CIS level 1 server
+#           schemaVersion: 1.0
+
+#           phases:
+#               - name: build
+#                 steps:
+#                   - name: USGFIX
+#                     action: ExecuteBash
+#                     inputs:
+#                       commands:
+#                         - sudo usg fix cis_level1_server
+
+#   ImageCleanUp:
+#     Type: AWS::ImageBuilder::Component
+#     Properties:
+#         Name: cleanup
+#         Version: 1.0.0
+#         Platform: !Ref ComponentPlatform
+#         Data: |
+#           name: CleanUp
+#           description: This will remove machine id
+#           schemaVersion: 1.0
+
+#           phases:
+#               - name: build
+#                 steps:
+#                   - name: CleanUp
+#                     action: ExecuteBash
+#                     inputs:
+#                       commands:
+#                         - sudo rm -rf /var/log/ubuntu-advantage.log
+#                         - sudo truncate -s 0 /etc/machine-id
+#                         - sudo truncate -s 0 /var/lib/dbus/machine-id
+
+#   ImageBuilderRecipe:
+#     Type: AWS::ImageBuilder::ImageRecipe
+#     Properties:
+#         Name: Amazon Linux AMI 2023 CIS hardening
+#         Version: 1.0.0
+#         Components:
+#           - ComponentArn: !Ref InstallUSGComponent
+#           - ComponentArn: !Ref FixCISLevel1NonCompliantResources
+#           - ComponentArn: !Ref ImageCleanUp
+#         ParentImage: !FindInMap
+#           - AWSRegionAMI
+#           - !Ref "AWS::Region"
+#           - AMI
+
+#   ImageBuildDistributionConfig:
+#     Type: AWS::ImageBuilder::DistributionConfiguration
+#     Properties:
+#         Name: Ubuntu Pro 20-04 CIS Level 1 distribution config
+#         Distributions:
+#             - Region: us-east-1
+#               AmiDistributionConfiguration:
+#                   Name: cfn-us-east-1-{{imagebuilder:buildDate}}
+
+#   ImageBuilderInfrastructureConfiguration:
+#     Type: AWS::ImageBuilder::InfrastructureConfiguration
+#     Properties:
+#         Name: Ubuntu Pro 20-04 CIS Level 1 infrastructure config
+#         InstanceProfileName: !Ref InstanceProfileForImageBuilder
+#         InstanceTypes: 
+#           - !Ref InstanceType
+
+#   ImageBuilderPipeline:
+#     Type: AWS::ImageBuilder::ImagePipeline
+#     Properties:
+#       Name: Amazon Linux AMI 2023 CIS hardened image
+#       Description: Level 1 server CIS hardening
+#       DistributionConfigurationArn: !Ref ImageBuildDistributionConfig
+#       ImageRecipeArn: !Ref ImageBuilderRecipe
+#       InfrastructureConfigurationArn: !Ref ImageBuilderInfrastructureConfiguration
+#       ImageTestsConfiguration:
+#         ImageTestsEnabled: true
+#         TimeoutMinutes: 60
+#       Schedule:
+#         PipelineExecutionStartCondition: EXPRESSION_MATCH_AND_DEPENDENCY_UPDATES_AVAILABLE
+#         ScheduleExpression: cron(0 0 * * ? *)
+#       Status: ENABLED
